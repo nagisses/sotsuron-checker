@@ -362,12 +362,12 @@ export function RightPanel() {
                 {builtDetailsOpen ? (
                   <>
                     <ChevronDown size={12} style={{ verticalAlign: 'middle', marginRight: 4 }} aria-hidden="true" />
-                    詳細をたたむ
+                    詳細をたたむ（建物全体を見る）
                   </>
                 ) : (
                   <>
                     <ChevronUp size={12} style={{ verticalAlign: 'middle', marginRight: 4 }} aria-hidden="true" />
-                    8要素ステータス・建物一覧
+                    3つの観点・8要素の詳細を開く
                   </>
                 )}
               </button>
@@ -391,38 +391,38 @@ export function RightPanel() {
             ))}
           </div>
 
-          {/* 3 Perspectives Grid (Always Visible!) */}
-          <div className="perspectives-grid">
-            {scoreReport.perspectives.map((p) => (
-              <div key={p.id} className="perspective-card">
-                <div className="perspective-top">
-                  <span className="perspective-title">{p.title}</span>
-                  <span className={`perspective-grade grade-${p.grade}`}>
-                    {p.grade} ({p.score}点)
-                  </span>
-                </div>
-                <div className="confidence-track" style={{ marginBottom: 6 }}>
-                  <div
-                    className="confidence-fill"
-                    style={{
-                      width: `${p.score}%`,
-                      backgroundColor:
-                        p.score >= 70 ? '#48D7BA' : p.score >= 50 ? '#E3B86B' : '#FF594F',
-                    }}
-                  />
-                </div>
-                <div className="perspective-good">
-                  <strong>良い点:</strong> {p.strengthJa}
-                </div>
-                <div className="perspective-advice">
-                  <strong>改善点:</strong> {p.adviceJa}
-                </div>
-              </div>
-            ))}
-          </div>
-
           {builtDetailsOpen && (
             <div className="built-expanded-body">
+              {/* 3 Perspectives Grid */}
+              <div className="perspectives-grid" style={{ marginBottom: 12 }}>
+                {scoreReport.perspectives.map((p) => (
+                  <div key={p.id} className="perspective-card">
+                    <div className="perspective-top">
+                      <span className="perspective-title">{p.title}</span>
+                      <span className={`perspective-grade grade-${p.grade}`}>
+                        {p.grade} ({p.score}点)
+                      </span>
+                    </div>
+                    <div className="confidence-track" style={{ marginBottom: 6 }}>
+                      <div
+                        className="confidence-fill"
+                        style={{
+                          width: `${p.score}%`,
+                          backgroundColor:
+                            p.score >= 70 ? '#48D7BA' : p.score >= 50 ? '#E3B86B' : '#FF594F',
+                        }}
+                      />
+                    </div>
+                    <div className="perspective-good">
+                      <strong>良い点:</strong> {p.strengthJa}
+                    </div>
+                    <div className="perspective-advice">
+                      <strong>改善点:</strong> {p.adviceJa}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
               <div className="substats-section">
                 <h3 className="panel-section-heading">8要素 精密診断ステータス（各100点満点）</h3>
                 <div className="substats-grid">

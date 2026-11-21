@@ -27,6 +27,7 @@ export function CameraRig() {
   const controlsRef = useRef<OrbitControlsImpl>(null);
   const { camera } = useThree();
   const cameraMode = useThesisStore((s) => s.cameraMode);
+  const appPhase = useThesisStore((s) => s.appPhase);
   const cameraRequestNonce = useThesisStore((s) => s.cameraRequestNonce);
   const selectedNodeId = useThesisStore((s) => s.selectedNodeId);
   const selectedEdgeId = useThesisStore((s) => s.selectedEdgeId);
@@ -49,10 +50,16 @@ export function CameraRig() {
     collapseCamPos.y = 21.5;
 
     return {
-      overview: {
-        position: [26, 32, 70],
-        target: [0, 14.5, -2],
-      },
+      overview:
+        appPhase === 'built'
+          ? {
+              position: [32, 44, 88],
+              target: [0, 2.5, 0],
+            }
+          : {
+              position: [26, 32, 70],
+              target: [0, 14.5, -2],
+            },
       central_tower: {
         position: [15, 21, 44],
         target: [0, 18.5, 0],
@@ -62,7 +69,7 @@ export function CameraRig() {
         target: [cx, 12.5, cz],
       },
     };
-  }, [blueprint.criticalZoneCenter]);
+  }, [blueprint.criticalZoneCenter, appPhase]);
 
   const computeInspectionPose = useCallback(
     (mode: CameraMode): CameraPose => {
