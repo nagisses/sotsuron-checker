@@ -1,6 +1,7 @@
 node_modules/
 dist/
 dist-server/
+.cloudflare/
 .env
 .env.local
 .env.*.local
