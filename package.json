@@ -1,0 +1,48 @@
+{
+  "name": "thesis-apocalypse",
+  "private": true,
+  "version": "0.2.0",
+  "description": "THESIS APOCALYPSE — Cinematic 3D Research Intelligence Platform",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && npm run typecheck:server && vite build && npm run build:server",
+    "build:server": "node scripts/build-server.mjs",
+    "start:api": "node dist-server/cliServer.mjs",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "typecheck:server": "tsc -p tsconfig.server.json --noEmit",
+    "verify:phase2": "node scripts/verify-phase2.mjs",
+    "verify:phase3": "node scripts/verify-phase3.mjs",
+    "verify:phase4": "node scripts/verify-phase4.mjs",
+    "verify:phase5": "node scripts/verify-phase5.mjs",
+    "verify:gemini": "node scripts/verify-gemini-live.mjs"
+  },
+  "dependencies": {
+    "@fontsource-variable/inter": "^5.2.5",
+    "@fontsource/ibm-plex-mono": "^5.2.5",
+    "@fontsource/noto-sans-jp": "^5.2.5",
+    "@google/genai": "^3.6.0",
+    "@react-three/drei": "^10.7.9",
+    "@react-three/fiber": "^9.8.2",
+    "@react-three/postprocessing": "^3.2.2",
+    "gsap": "^3.15.1",
+    "lucide-react": "^0.511.0",
+    "postprocessing": "^6.36.6",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "three": "^0.187.0",
+    "zod": "^3.24.2",
+    "zustand": "^5.0.3"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.2",
+    "@types/react-dom": "^19.1.2",
+    "@types/three": "^0.187.0",
+    "@vitejs/plugin-react": "^4.4.1",
+    "axe-core": "^4.10.3",
+    "playwright-core": "^1.52.0",
+    "typescript": "^5.8.2",
+    "vite": "^6.3.5"
+  }
+}
