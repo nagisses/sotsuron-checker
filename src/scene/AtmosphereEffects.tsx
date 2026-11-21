@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { QualityTier } from '../store/useThesisStore';
+import { QualityTier, useThesisStore } from '../store/useThesisStore';
 import { CityBuildingSpec } from '../types/thesis';
 import { createOrionSkyMaterial } from './shaders/cityShaders';
 
@@ -89,6 +89,27 @@ export function AtmosphereEffects({
   const craftBodyRef = useRef<THREE.InstancedMesh>(null);
   const craftTailRef = useRef<THREE.InstancedMesh>(null);
   const mistGroupRef = useRef<THREE.Group>(null);
+  const disasterEvent = useThesisStore((s) => s.disasterEvent);
+
+  // Disaster FX refs: seismic shockwave, falling rubble debris, typhoon vortex, lightning, shield dome
+  const quakeWaveRef = useRef<THREE.Mesh>(null);
+  const debrisRef = useRef<THREE.InstancedMesh>(null);
+  const vortexGroupRef = useRef<THREE.Group>(null);
+  const lightningRef = useRef<THREE.PointLight>(null);
+  const shieldDomeRef = useRef<THREE.Mesh>(null);
+
+  const debrisSeeds = useMemo(() => {
+    const rand = createRng(8842);
+    return Array.from({ length: 36 }, () => ({
+      vx: (rand() - 0.5) * 26,
+      vy: 10 + rand() * 18,
+      vz: (rand() - 0.5) * 26,
+      rx: rand() * 6,
+      ry: rand() * 6,
+      scale: 0.45 + rand() * 0.85,
+      startY: 5 + rand() * 14,
+    }));
+  }, []);
 
   // Soft red aviation warning beacons on tall roofs
   const beaconGeom = useMemo(() => {
@@ -263,18 +284,107 @@ export function AtmosphereEffects({
     if (rainRef.current && rainCount > 0) {
       const attr = rainGeom.getAttribute('position') as THREE.BufferAttribute;
       const arr = attr.array as Float32Array;
-      const fall = delta * 42;
+      const typhoonActive =
+        disasterEvent?.kind === 'typhoon' &&
+        performance.now() - disasterEvent.startedAtMs >= 0 &&
+        performance.now() - disasterEvent.startedAtMs < 3600;
+      const fall = delta * (typhoonActive ? 115 : 42);
+      const windX = typhoonActive ? delta * 68 : 0;
       for (let i = 0; i < rainCount; i += 1) {
+        arr[i * 6] += windX;
+        arr[i * 6 + 3] += windX;
         arr[i * 6 + 1] -= fall;
         arr[i * 6 + 4] -= fall;
-        if (arr[i * 6 + 4] < -18) {
+        if (arr[i * 6 + 4] < -18 || arr[i * 6] > 78) {
           const resetY = 74;
-          const len = 2.6;
+          const len = typhoonActive ? 4.8 : 2.6;
+          if (arr[i * 6] > 78) {
+            arr[i * 6] = -72;
+            arr[i * 6 + 3] = -72 + (typhoonActive ? 2.4 : 0.35);
+          }
           arr[i * 6 + 1] = resetY;
           arr[i * 6 + 4] = resetY - len;
         }
       }
       attr.needsUpdate = true;
+    }
+
+    // Disaster 3D Effects (Seismic Wave + Debris / Typhoon Vortex + Lightning / Shield Dome)
+    const nowMs = performance.now();
+    const dElapsed = disasterEvent ? nowMs - disasterEvent.startedAtMs : -1;
+    const dDur = 3000;
+    const dActive = Boolean(disasterEvent && dElapsed >= 0 && dElapsed < dDur && !reducedMotion);
+    const dP = dActive ? dElapsed / dDur : 0;
+
+    if (quakeWaveRef.current) {
+      const isQuake = dActive && disasterEvent?.kind === 'earthquake';
+      quakeWaveRef.current.visible = isQuake;
+      if (isQuake) {
+        const s = 1 + dP * 3.8;
+        quakeWaveRef.current.scale.set(s, s, 1);
+        const mat = quakeWaveRef.current.material as THREE.MeshBasicMaterial;
+        mat.opacity = Math.max(0, (1 - dP) * 0.9);
+      }
+    }
+
+    if (debrisRef.current) {
+      const showDebris = dActive && (disasterEvent?.kind === 'earthquake' || disasterEvent?.kind === 'typhoon');
+      debrisRef.current.visible = showDebris;
+      if (showDebris) {
+        const tSec = dElapsed / 1000;
+        const cx = criticalCenter[0];
+        const cz = criticalCenter[2];
+        const windPush = disasterEvent?.kind === 'typhoon' ? 14 : 0;
+        debrisSeeds.forEach((d, idx) => {
+          const x = cx + (d.vx + windPush) * tSec;
+          const y = Math.max(0.4, d.startY + d.vy * tSec - 18 * tSec * tSec);
+          const z = cz + d.vz * tSec;
+          const fade = Math.max(0.01, 1 - dP * 0.85);
+          dummyObj.position.set(x, y, z);
+          dummyObj.rotation.set(d.rx + tSec * 5, d.ry + tSec * 4, tSec * 3);
+          dummyObj.scale.setScalar(d.scale * fade);
+          dummyObj.updateMatrix();
+          debrisRef.current!.setMatrixAt(idx, dummyObj.matrix);
+        });
+        debrisRef.current.instanceMatrix.needsUpdate = true;
+      }
+    }
+
+    if (vortexGroupRef.current) {
+      const isTyphoon = dActive && disasterEvent?.kind === 'typhoon';
+      vortexGroupRef.current.visible = isTyphoon;
+      if (isTyphoon) {
+        vortexGroupRef.current.rotation.y += delta * 5.8;
+        const pulse = Math.sin(dP * Math.PI);
+        vortexGroupRef.current.children.forEach((child, idx) => {
+          const mesh = child as THREE.Mesh;
+          mesh.rotation.z = nowMs * 0.004 * (idx % 2 === 0 ? 1 : -1);
+          const mat = mesh.material as THREE.MeshBasicMaterial;
+          mat.opacity = pulse * (0.48 - idx * 0.08);
+        });
+      }
+    }
+
+    if (lightningRef.current) {
+      const isTyphoon = dActive && disasterEvent?.kind === 'typhoon';
+      const flash =
+        isTyphoon &&
+        ((dElapsed > 180 && dElapsed < 320) ||
+          (dElapsed > 950 && dElapsed < 1120) ||
+          (dElapsed > 1750 && dElapsed < 1880));
+      lightningRef.current.intensity = flash ? 180 : 0;
+    }
+
+    if (shieldDomeRef.current) {
+      const isShield = dActive && disasterEvent?.kind === 'shield';
+      shieldDomeRef.current.visible = isShield;
+      if (isShield) {
+        const s = 0.65 + Math.sin(dP * Math.PI * 0.5) * 0.45;
+        shieldDomeRef.current.scale.setScalar(s);
+        shieldDomeRef.current.rotation.y += delta * 0.6;
+        const mat = shieldDomeRef.current.material as THREE.MeshBasicMaterial;
+        mat.opacity = Math.sin(dP * Math.PI) * 0.42;
+      }
     }
 
     if (showEmbers) {
@@ -341,6 +451,73 @@ export function AtmosphereEffects({
           <lineBasicMaterial color="#a8cbe6" transparent opacity={0.26} depthWrite={false} />
         </lineSegments>
       )}
+
+      {/* Earthquake Plaza Shockwave Ring */}
+      <mesh
+        ref={quakeWaveRef}
+        position={[criticalCenter[0], 0.48, criticalCenter[2]]}
+        rotation={[-Math.PI / 2, 0, 0]}
+        visible={false}
+      >
+        <ringGeometry args={[8.5, 11.2, 48]} />
+        <meshBasicMaterial
+          color="#FF594F"
+          transparent
+          opacity={0.85}
+          toneMapped={false}
+          side={THREE.DoubleSide}
+          depthWrite={false}
+        />
+      </mesh>
+
+      {/* Tumbling Concrete & Ember Debris Chunks */}
+      <instancedMesh ref={debrisRef} args={[undefined, undefined, debrisSeeds.length]} visible={false}>
+        <boxGeometry args={[1, 0.7, 0.85]} />
+        <meshStandardMaterial
+          color="#2b333d"
+          emissive="#FF594F"
+          emissiveIntensity={0.65}
+          roughness={0.7}
+          metalness={0.2}
+        />
+      </instancedMesh>
+
+      {/* Typhoon Swirling Cyclone Vortex Rings */}
+      <group ref={vortexGroupRef} position={[0, 0, 0]} visible={false}>
+        {[
+          { y: 7, r: 22, tube: 0.42 },
+          { y: 17, r: 28, tube: 0.55 },
+          { y: 28, r: 35, tube: 0.68 },
+        ].map((ring, idx) => (
+          <mesh key={idx} position={[0, ring.y, 0]} rotation={[Math.PI / 2 + 0.12, 0, 0]}>
+            <torusGeometry args={[ring.r, ring.tube, 8, 48]} />
+            <meshBasicMaterial
+              color="#7CE8FF"
+              transparent
+              opacity={0.4}
+              toneMapped={false}
+              blending={THREE.AdditiveBlending}
+              depthWrite={false}
+            />
+          </mesh>
+        ))}
+      </group>
+
+      {/* Typhoon Lightning Flash */}
+      <pointLight ref={lightningRef} position={[12, 58, 18]} color="#B8ECFF" intensity={0} distance={190} />
+
+      {/* Holographic Shield Dome (High-Score Disaster Resistance) */}
+      <mesh ref={shieldDomeRef} position={[0, 4, 0]} visible={false}>
+        <sphereGeometry args={[34, 24, 16, 0, Math.PI * 2, 0, Math.PI * 0.58]} />
+        <meshBasicMaterial
+          color="#48D7BA"
+          wireframe
+          transparent
+          opacity={0.35}
+          toneMapped={false}
+          depthWrite={false}
+        />
+      </mesh>
 
       {/* Critical Collapse Rising Embers */}
       {showEmbers &&

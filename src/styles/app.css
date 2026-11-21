@@ -2017,7 +2017,81 @@ textarea:focus-visible {
   .score-big-number.is-flash strong,
   .score-rank-badge.is-slam,
   .achievement-badge.is-pop,
-  .confetti-piece {
+  .confetti-piece,
+  .disaster-alert-banner {
     animation: none !important;
   }
+}
+
+/* Disaster Stress Test Alert Banner & Trigger Buttons */
+@keyframes disasterBannerIn {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -14px) scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+}
+
+.disaster-alert-banner {
+  position: fixed;
+  top: 56px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 25;
+  width: min(620px, calc(100vw - 32px));
+  padding: 9px 14px;
+  background-color: rgba(12, 18, 26, 0.94);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--critical-red);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
+  animation: disasterBannerIn 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  pointer-events: none;
+}
+
+.disaster-alert-banner.kind-earthquake {
+  border-color: #FF594F;
+  border-left: 4px solid #FF594F;
+}
+
+.disaster-alert-banner.kind-typhoon {
+  border-color: #7CE8FF;
+  border-left: 4px solid #E3B86B;
+}
+
+.disaster-alert-banner.kind-shield {
+  border-color: #48D7BA;
+  border-left: 4px solid #48D7BA;
+}
+
+.disaster-alert-headline {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.disaster-alert-detail {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.disaster-trigger-btn.is-quake {
+  border-color: rgba(255, 89, 79, 0.65);
+  color: #FF8C85;
+}
+
+.disaster-trigger-btn.is-quake:hover {
+  background-color: rgba(255, 89, 79, 0.16);
+}
+
+.disaster-trigger-btn.is-typhoon {
+  border-color: rgba(124, 232, 255, 0.65);
+  color: #7CE8FF;
+}
+
+.disaster-trigger-btn.is-typhoon:hover {
+  background-color: rgba(124, 232, 255, 0.16);
 }

@@ -16,6 +16,15 @@ import {
 } from '../types/thesis';
 
 export type AppPhase = 'upload' | 'verify' | 'built';
+export type DisasterKind = 'earthquake' | 'typhoon' | 'shield';
+
+export interface DisasterEventState {
+  kind: DisasterKind;
+  startedAtMs: number;
+  headlineJa: string;
+  detailJa: string;
+}
+
 export type CameraMode =
   | 'overview'
   | 'building_inspection'
@@ -56,6 +65,7 @@ interface ThesisCityState {
   previousScore: number | null;
   soundEnabled: boolean;
   constructionStartedAtMs: number;
+  disasterEvent: DisasterEventState | null;
   graph: ThesisGraph;
   blueprint: CityBlueprint;
   analysisSource: AnalysisSourceKind;
@@ -118,6 +128,7 @@ interface ThesisCityState {
   toggleChecklistCheck: (key: 'noContradiction' | 'causalCheck' | 'evidenceVerified') => void;
   finalizeAndBuildCity: () => void;
   replayConstruction: () => void;
+  triggerDisaster: (kind: DisasterKind) => void;
   returnToVerify: () => void;
   applyNodeRevision: (params: {
     nodeId: string;
@@ -166,6 +177,7 @@ export const useThesisStore = create<ThesisCityState>((set) => ({
   previousScore: null,
   soundEnabled: true,
   constructionStartedAtMs: 0,
+  disasterEvent: null,
   graph: SAMPLE_THESIS_GRAPH,
   blueprint: initialBlueprint,
   analysisSource: 'sample',
@@ -290,6 +302,7 @@ export const useThesisStore = create<ThesisCityState>((set) => ({
         scoreReport: null,
         previousScore: null,
         constructionStartedAtMs: 0,
+        disasterEvent: null,
         graph,
         blueprint: nextBlueprint,
         analysisSource: meta?.source ?? 'gemini',
@@ -318,6 +331,7 @@ export const useThesisStore = create<ThesisCityState>((set) => ({
       scoreReport: null,
       previousScore: null,
       constructionStartedAtMs: 0,
+      disasterEvent: null,
       graph: SAMPLE_THESIS_GRAPH,
       blueprint: initialBlueprint,
       analysisSource: 'sample',
@@ -348,6 +362,7 @@ export const useThesisStore = create<ThesisCityState>((set) => ({
       scoreReport: null,
       previousScore: null,
       constructionStartedAtMs: 0,
+      disasterEvent: null,
       lastDeltaBanner: null,
       revisionHistory: [],
       activeTransitions: {},
@@ -383,10 +398,35 @@ export const useThesisStore = create<ThesisCityState>((set) => ({
         state.previousScore,
         checklistCount,
       );
+      const nowMs = performance.now();
+      const strikeDelayMs = 1950;
+      const hasFlaw = report.criticalCount > 0 || report.warningCount > 0 || report.totalScore < 80;
+      const disasterEvent: DisasterEventState = !hasFlaw
+        ? {
+            kind: 'shield',
+            startedAtMs: nowMs + strikeDelayMs,
+            headlineJa: '🛡️ 災害耐性テスト合格！ 地震・台風を完全に防ぎました',
+            detailJa: '強固な構成と根拠により、ホログラムシールドがすべての衝撃を吸収しました。',
+          }
+        : report.consistencyScore <= report.evidenceScore
+          ? {
+              kind: 'earthquake',
+              startedAtMs: nowMs + strikeDelayMs,
+              headlineJa: '🌋 構成の甘さを検知！ 震度6強の論理地震が発生',
+              detailJa: `矛盾・飛躍のある${Math.max(1, report.criticalCount + report.warningCount)}棟の建物が揺れに耐えきれず崩落しました。`,
+            }
+          : {
+              kind: 'typhoon',
+              startedAtMs: nowMs + strikeDelayMs,
+              headlineJa: '🌪️ 根拠の弱さを検知！ 猛烈な台風が直撃',
+              detailJa: `データ・裏付けが弱い${Math.max(1, report.criticalCount + report.warningCount)}棟の建物が暴風で傾き損傷しました。`,
+            };
+
       return {
         appPhase: 'built',
         scoreReport: report,
-        constructionStartedAtMs: performance.now(),
+        constructionStartedAtMs: nowMs,
+        disasterEvent,
         cameraMode: 'overview',
         cameraRequestNonce: state.cameraRequestNonce + 1,
         selectedEdgeId: null,
@@ -395,17 +435,68 @@ export const useThesisStore = create<ThesisCityState>((set) => ({
     }),
 
   replayConstruction: () =>
-    set((state) => ({
-      constructionStartedAtMs: performance.now(),
-      cameraMode: 'overview',
-      cameraRequestNonce: state.cameraRequestNonce + 1,
-    })),
+    set((state) => {
+      const nowMs = performance.now();
+      return {
+        constructionStartedAtMs: nowMs,
+        disasterEvent: state.disasterEvent
+          ? { ...state.disasterEvent, startedAtMs: nowMs + 1950 }
+          : null,
+        cameraMode: 'overview',
+        cameraRequestNonce: state.cameraRequestNonce + 1,
+      };
+    }),
+
+  triggerDisaster: (kind) =>
+    set((state) => {
+      const report = state.scoreReport;
+      const flawCount = (report?.criticalCount ?? 0) + (report?.warningCount ?? 0);
+      const isStrong = flawCount === 0 && (report?.totalScore ?? 0) >= 80;
+      const nowMs = performance.now();
+      if (kind === 'shield' || (isStrong && kind !== 'earthquake' && kind !== 'typhoon')) {
+        return {
+          disasterEvent: {
+            kind: 'shield',
+            startedAtMs: nowMs,
+            headlineJa: '🛡️ 災害耐性テスト合格！ 地震・台風を完全に防ぎました',
+            detailJa: '盤石な論理構造により、すべての衝撃をシールドで跳ね返しました。',
+          },
+        };
+      }
+      if (kind === 'earthquake') {
+        return {
+          disasterEvent: {
+            kind: 'earthquake',
+            startedAtMs: nowMs,
+            headlineJa: isStrong
+              ? '🌋 地震テスト実行！ 盤石な構成で震度6強に耐えました'
+              : '🌋 震度6強の論理地震が発生！ 構成の甘い建物が崩落',
+            detailJa: isStrong
+              ? '重大な矛盾がないため、すべての建物が倒壊せず持ちこたえました！'
+              : `矛盾・要確認の${Math.max(1, flawCount)}棟が激しい揺れで傾き・崩落しました。文章を直して補強しよう！`,
+          },
+        };
+      }
+      return {
+        disasterEvent: {
+          kind: 'typhoon',
+          startedAtMs: nowMs,
+          headlineJa: isStrong
+            ? '🌪️ 台風テスト実行！ 強固な根拠で暴風を耐え抜きました'
+            : '🌪️ 猛烈な台風が直撃！ 根拠の弱い建物が暴風で損傷',
+          detailJa: isStrong
+            ? '十分なデータと客観性があるため、強風にもビクともしませんでした！'
+            : `裏付けが弱い${Math.max(1, flawCount)}棟が突風に煽られて傾き・損傷しました。`,
+        },
+      };
+    }),
 
   returnToVerify: () =>
     set((state) => ({
       appPhase: 'verify',
       previousScore: state.scoreReport?.totalScore ?? state.previousScore,
       scoreReport: null,
+      disasterEvent: null,
       cameraMode: 'overview',
       cameraRequestNonce: state.cameraRequestNonce + 1,
       selectedEdgeId: null,

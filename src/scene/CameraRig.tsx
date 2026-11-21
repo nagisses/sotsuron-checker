@@ -28,6 +28,7 @@ export function CameraRig() {
   const { camera } = useThree();
   const cameraMode = useThesisStore((s) => s.cameraMode);
   const appPhase = useThesisStore((s) => s.appPhase);
+  const disasterEvent = useThesisStore((s) => s.disasterEvent);
   const cameraRequestNonce = useThesisStore((s) => s.cameraRequestNonce);
   const selectedNodeId = useThesisStore((s) => s.selectedNodeId);
   const selectedEdgeId = useThesisStore((s) => s.selectedEdgeId);
@@ -35,6 +36,7 @@ export function CameraRig() {
   const blueprint = useThesisStore((s) => s.blueprint);
   const transitionRef = useRef<ActiveTransition | null>(null);
   const hasPlayedGenesisRef = useRef(false);
+  const prevShakeRef = useRef(new THREE.Vector3());
 
   const staticPoses = useMemo<Record<'overview' | 'central_tower' | 'destruction_cinematic', CameraPose>>(() => {
     const cx = blueprint.criticalZoneCenter[0];
@@ -244,21 +246,55 @@ export function CameraRig() {
     };
   }, [camera, cameraMode, cameraRequestNonce, computeInspectionPose, reducedMotion]);
 
-  useFrame(() => {
+  useFrame(({ clock }) => {
     const tr = transitionRef.current;
     const controls = controlsRef.current;
-    if (!tr || !controls) return;
 
-    const rawT = (performance.now() - tr.startTimeMs) / tr.durationMs;
-    const t = Math.min(1, Math.max(0, rawT));
-    const eased = easeInOutCubic(t);
+    // Remove previous frame's disaster shake before applying transitions or new shake
+    if (prevShakeRef.current.lengthSq() > 0) {
+      camera.position.sub(prevShakeRef.current);
+      prevShakeRef.current.set(0, 0, 0);
+    }
 
-    camera.position.lerpVectors(tr.fromPos, tr.toPos, eased);
-    controls.target.lerpVectors(tr.fromTarget, tr.toTarget, eased);
-    controls.update();
+    if (tr && controls) {
+      const rawT = (performance.now() - tr.startTimeMs) / tr.durationMs;
+      const t = Math.min(1, Math.max(0, rawT));
+      const eased = easeInOutCubic(t);
 
-    if (t >= 1) {
-      transitionRef.current = null;
+      camera.position.lerpVectors(tr.fromPos, tr.toPos, eased);
+      controls.target.lerpVectors(tr.fromTarget, tr.toTarget, eased);
+      controls.update();
+
+      if (t >= 1) {
+        transitionRef.current = null;
+      }
+    }
+
+    // Procedural Earthquake / Typhoon Camera Shake
+    if (!reducedMotion && disasterEvent && disasterEvent.kind !== 'shield') {
+      const elapsed = performance.now() - disasterEvent.startedAtMs;
+      const shakeDur = disasterEvent.kind === 'earthquake' ? 2400 : 2800;
+      if (elapsed >= 0 && elapsed < shakeDur) {
+        const decay = 1 - elapsed / shakeDur;
+        const t = clock.getElapsedTime();
+        if (disasterEvent.kind === 'earthquake') {
+          const amp = 0.72 * decay * decay;
+          prevShakeRef.current.set(
+            Math.sin(t * 58) * amp,
+            Math.cos(t * 47) * amp * 0.65,
+            Math.sin(t * 63 + 1.1) * amp * 0.5,
+          );
+        } else {
+          // Typhoon lateral wind buffeting
+          const amp = 0.42 * decay;
+          prevShakeRef.current.set(
+            Math.sin(t * 21) * amp + Math.sin(t * 39) * amp * 0.35,
+            Math.cos(t * 17) * amp * 0.25,
+            Math.sin(t * 15) * amp * 0.3,
+          );
+        }
+        camera.position.add(prevShakeRef.current);
+      }
     }
   });
 

@@ -28,7 +28,7 @@ import {
   STATUS_META_JA,
   getDisplayTitle,
 } from '../utils/labels';
-import { playFixSuccess, playRankFanfare, playRollTick } from '../utils/soundFx';
+import { playDisasterSound, playFixSuccess, playRankFanfare, playRollTick } from '../utils/soundFx';
 
 const CONFETTI_PIECES = Array.from({ length: 24 }, (_, idx) => ({
   id: idx,
@@ -86,6 +86,8 @@ export function RightPanel() {
   const returnToVerify = useThesisStore((s) => s.returnToVerify);
   const scoreReport = useThesisStore((s) => s.scoreReport);
   const constructionStartedAtMs = useThesisStore((s) => s.constructionStartedAtMs);
+  const disasterEvent = useThesisStore((s) => s.disasterEvent);
+  const triggerDisaster = useThesisStore((s) => s.triggerDisaster);
   const soundEnabled = useThesisStore((s) => s.soundEnabled);
   const reducedMotion = useThesisStore((s) => s.reducedMotion);
   const applyNodeRevision = useThesisStore((s) => s.applyNodeRevision);
@@ -106,6 +108,7 @@ export function RightPanel() {
   const [builtDetailsOpen, setBuiltDetailsOpen] = useState(false);
   const [displayScore, setDisplayScore] = useState(0);
   const [revealDone, setRevealDone] = useState(false);
+  const [disasterBannerVisible, setDisasterBannerVisible] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const panelScrollRef = useRef<HTMLDivElement>(null);
@@ -167,6 +170,20 @@ export function RightPanel() {
     rafId = requestAnimationFrame(step);
     return () => cancelAnimationFrame(rafId);
   }, [appPhase, scoreReport, constructionStartedAtMs, reducedMotion, soundEnabled]);
+
+  useEffect(() => {
+    if (appPhase !== 'built' || !disasterEvent) {
+      setDisasterBannerVisible(false);
+      return;
+    }
+    const delayMs = Math.max(0, Math.round(disasterEvent.startedAtMs - performance.now()));
+    setDisasterBannerVisible(false);
+    const timer = window.setTimeout(() => {
+      setDisasterBannerVisible(true);
+      playDisasterSound(disasterEvent.kind, soundEnabled);
+    }, delayMs);
+    return () => window.clearTimeout(timer);
+  }, [appPhase, disasterEvent, soundEnabled]);
 
   if (!inspectorOpen) return null;
 
@@ -282,11 +299,23 @@ export function RightPanel() {
   if (appPhase === 'built' && scoreReport) {
     const showConfetti = !reducedMotion && revealDone && scoreReport.totalScore >= 58;
     return (
-      <section
-        id="analysis-inspector-panel"
-        className="built-dock-overlay"
-        aria-label="採点結果と3つの観点評価"
-      >
+      <>
+        {disasterEvent && disasterBannerVisible && (
+          <div
+            className={`disaster-alert-banner kind-${disasterEvent.kind}`}
+            role="status"
+            aria-live="polite"
+          >
+            <div className="disaster-alert-headline">{disasterEvent.headlineJa}</div>
+            <div className="disaster-alert-detail">{disasterEvent.detailJa}</div>
+          </div>
+        )}
+
+        <section
+          id="analysis-inspector-panel"
+          className="built-dock-overlay"
+          aria-label="採点結果と3つの観点評価"
+        >
         <div
           className={`built-dock-card rank-glow-${scoreReport.rank.toLowerCase()} ${
             revealDone ? 'is-revealed' : ''
@@ -352,6 +381,20 @@ export function RightPanel() {
               >
                 <Play size={12} style={{ verticalAlign: 'middle', marginRight: 4 }} aria-hidden="true" />
                 もう一度建てる
+              </button>
+              <button
+                type="button"
+                className="node-chip-btn disaster-trigger-btn is-quake"
+                onClick={() => triggerDisaster('earthquake')}
+              >
+                🌋 地震テスト
+              </button>
+              <button
+                type="button"
+                className="node-chip-btn disaster-trigger-btn is-typhoon"
+                onClick={() => triggerDisaster('typhoon')}
+              >
+                🌪️ 台風テスト
               </button>
               <button
                 type="button"
@@ -561,6 +604,7 @@ export function RightPanel() {
           )}
         </div>
       </section>
+      </>
     );
   }
 

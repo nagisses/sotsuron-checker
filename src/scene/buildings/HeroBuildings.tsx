@@ -8,7 +8,7 @@ import {
   createHeroCircuitMaterial,
   createHologramRingMaterial,
 } from '../shaders/cityShaders';
-import { useThesisStore } from '../../store/useThesisStore';
+import { DisasterEventState, useThesisStore } from '../../store/useThesisStore';
 
 function SubDeckFoundation({
   width,
@@ -892,6 +892,8 @@ function BuildingTransitionFX({
   constructionStartedAtMs,
   appPhase,
   isCritical,
+  isWarning,
+  disasterEvent,
 }: {
   transition?: NodeTransitionEvent;
   radius: number;
@@ -902,6 +904,8 @@ function BuildingTransitionFX({
   constructionStartedAtMs: number;
   appPhase: 'upload' | 'verify' | 'built';
   isCritical: boolean;
+  isWarning: boolean;
+  disasterEvent: DisasterEventState | null;
 }) {
   const beamRef = useRef<THREE.Mesh>(null);
   const ringARef = useRef<THREE.Mesh>(null);
@@ -954,6 +958,7 @@ function BuildingTransitionFX({
         if (root) {
           root.scale.set(1, 0.02 + 0.98 * eased, 1);
           root.position.set(0, 0, 0);
+          root.rotation.set(0, 0, 0);
         }
         if (beamRef.current) {
           beamRef.current.visible = tailT < 0.95;
@@ -971,6 +976,95 @@ function BuildingTransitionFX({
         }
         if (ringBRef.current) ringBRef.current.visible = false;
         if (shockRef.current) shockRef.current.visible = false;
+        return;
+      }
+    }
+
+    // 1.5. Disaster Stress Test (Earthquake / Typhoon / Shield)
+    if (appPhase === 'built' && disasterEvent) {
+      const dElapsed = performance.now() - disasterEvent.startedAtMs;
+      if (dElapsed >= 0) {
+        const dDur = 2900;
+        const p = Math.min(1, dElapsed / dDur);
+        const active = dElapsed < dDur;
+        const t = clock.getElapsedTime();
+        const isFlawed = isCritical || isWarning;
+        const dirSign = buildOrderIndex % 2 === 0 ? 1 : -1;
+
+        if (disasterEvent.kind === 'shield') {
+          if (root) {
+            root.scale.set(1, 1, 1);
+            root.position.set(0, 0, 0);
+            root.rotation.set(0, 0, 0);
+          }
+          if (ringARef.current) {
+            ringARef.current.visible = active && !reducedMotion;
+            ringARef.current.position.y = Math.max(1, p * (height + 1.2));
+            ringARef.current.rotation.z = t * 2.2;
+            const mat = ringARef.current.material as THREE.MeshBasicMaterial;
+            mat.color.set('#48D7BA');
+            mat.opacity = Math.max(0, (1 - p) * 0.92);
+          }
+          if (beamRef.current) beamRef.current.visible = false;
+          if (ringBRef.current) ringBRef.current.visible = false;
+          if (shockRef.current) shockRef.current.visible = false;
+          return;
+        }
+
+        if (root) {
+          if (disasterEvent.kind === 'earthquake') {
+            if (isFlawed) {
+              const decay = active && !reducedMotion ? 1 - p : 0;
+              const shake = Math.sin(t * 54 + buildOrderIndex) * (isCritical ? 0.55 : 0.34) * decay;
+              const slumpProgress = reducedMotion ? 1 : Math.min(1, p * 1.35);
+              const targetScaleY = isCritical ? 0.68 : 0.85;
+              const targetTiltZ = (isCritical ? 0.24 : 0.12) * dirSign;
+              const targetTiltX = (isCritical ? 0.11 : 0.05) * -dirSign;
+              root.position.set(shake, 0, -shake * 0.65);
+              root.scale.set(1, 1 - (1 - targetScaleY) * slumpProgress, 1);
+              root.rotation.set(
+                targetTiltX * slumpProgress,
+                0,
+                targetTiltZ * slumpProgress + (active && !reducedMotion ? Math.sin(t * 36) * 0.06 * decay : 0),
+              );
+            } else {
+              const decay = active && !reducedMotion ? 1 - p : 0;
+              const microShake = Math.sin(t * 50 + buildOrderIndex) * 0.1 * decay;
+              root.position.set(microShake, 0, 0);
+              root.scale.set(1, 1, 1);
+              root.rotation.set(0, 0, 0);
+            }
+          } else if (disasterEvent.kind === 'typhoon') {
+            if (isFlawed) {
+              const decay = active && !reducedMotion ? 1 - p : 0;
+              const windProgress = reducedMotion ? 1 : Math.min(1, p * 1.25);
+              const sway = active && !reducedMotion ? Math.sin(t * 18 + buildOrderIndex) * 0.16 * decay : 0;
+              const targetTiltZ = isCritical ? 0.28 : 0.14;
+              const targetScaleY = isCritical ? 0.76 : 0.9;
+              root.position.set(windProgress * (isCritical ? 0.6 : 0.25), 0, 0);
+              root.scale.set(1, 1 - (1 - targetScaleY) * windProgress, 1);
+              root.rotation.set(0.05 * windProgress, 0, targetTiltZ * windProgress + sway);
+            } else {
+              const decay = active && !reducedMotion ? 1 - p : 0;
+              const mildSway = active && !reducedMotion ? Math.sin(t * 14 + buildOrderIndex) * 0.025 * decay : 0;
+              root.position.set(0, 0, 0);
+              root.scale.set(1, 1, 1);
+              root.rotation.set(0, 0, mildSway);
+            }
+          }
+        }
+
+        if (shockRef.current) {
+          shockRef.current.visible = active && isFlawed && !reducedMotion;
+          const expand = 1 + p * 2.5;
+          shockRef.current.scale.set(expand, expand, 1);
+          const mat = shockRef.current.material as THREE.MeshBasicMaterial;
+          mat.color.set(disasterEvent.kind === 'earthquake' ? '#FF594F' : '#E3B86B');
+          mat.opacity = Math.max(0, (1 - p) * 0.9);
+        }
+        if (beamRef.current) beamRef.current.visible = false;
+        if (ringARef.current) ringARef.current.visible = false;
+        if (ringBRef.current) ringBRef.current.visible = false;
         return;
       }
     }
@@ -1112,6 +1206,7 @@ export function HeroBuildingMesh({
   const animRootRef = useRef<THREE.Group>(null);
   const appPhase = useThesisStore((s) => s.appPhase);
   const constructionStartedAtMs = useThesisStore((s) => s.constructionStartedAtMs);
+  const disasterEvent = useThesisStore((s) => s.disasterEvent);
   const selectedNodeId = useThesisStore((s) => s.selectedNodeId);
   const selectedEdgeId = useThesisStore((s) => s.selectedEdgeId);
   const blueprint = useThesisStore((s) => s.blueprint);
@@ -1221,6 +1316,8 @@ export function HeroBuildingMesh({
         constructionStartedAtMs={constructionStartedAtMs}
         appPhase={appPhase}
         isCritical={isCritical}
+        isWarning={isWarning}
+        disasterEvent={disasterEvent}
       />
       <SelectionHalo
         radius={Math.max(spec.width, spec.depth) * 0.9}
