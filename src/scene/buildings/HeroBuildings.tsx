@@ -902,7 +902,7 @@ function BuildingTransitionFX({
   animRootRef: RefObject<THREE.Group | null>;
   buildOrderIndex: number;
   constructionStartedAtMs: number;
-  appPhase: 'upload' | 'verify' | 'built';
+  appPhase: 'prep' | 'upload' | 'verify' | 'built';
   isCritical: boolean;
   isWarning: boolean;
   disasterEvent: DisasterEventState | null;

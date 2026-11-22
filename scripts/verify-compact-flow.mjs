@@ -194,27 +194,34 @@ async function run() {
     });
     await page.waitForTimeout(1600);
 
-    // STEP 1: Verify Initial Empty Upload Stage ('upload')
+    // STEP 1: Verify Pre-Writing Studio ('prep')
+    const step0State = await page.evaluate(() => window.__THESIS_CITY__.getState());
+    assert.equal(step0State.appPhase, 'prep', 'Must start on unified pre-writing studio');
+    const step0Audit = await runAudit(page);
+    await page.screenshot({ path: path.join(SCREENSHOT_DIR, 'compact-00-prep-studio.png') });
+
+    // Load Preset ② (earthquake weakness), switch to Outline tab, and assemble draft into Step 2 ('upload')
+    await page.getByRole('button', { name: /スマホ×睡眠/i }).click();
+    await page.waitForTimeout(200);
+    await page.getByRole('tab', { name: /3\. 構成づくり/i }).click();
+    await page.waitForTimeout(200);
+    await page.getByRole('button', { name: /この構成から本文ドラフトを作成して次へ/i }).click();
+    await page.waitForTimeout(350);
+
+    // STEP 2: Verify Draft/Upload Stage ('upload') pre-filled from Prep Studio
     const step1State = await page.evaluate(() => window.__THESIS_CITY__.getState());
-    assert.equal(step1State.appPhase, 'upload', 'Must start on empty upload plot');
+    assert.equal(step1State.appPhase, 'upload', 'Must advance to upload/draft stage');
     const step1Audit = await runAudit(page);
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, 'compact-01-upload-empty-plot.png') });
 
-    // Load Graduation Thesis Sample ('卒論サンプル（矛盾あり）') and run check
-    await page.getByRole('button', { name: /卒論サンプル（矛盾あり）/i }).click();
-    await page.waitForTimeout(250);
-
-    if (hasLiveKey) {
-      await page.getByRole('button', { name: /文章の矛盾・整合性をチェックする/i }).click();
-      await page.waitForFunction(
-        () => window.__THESIS_CITY__?.getState().appPhase === 'verify',
-        undefined,
-        { timeout: 60000 },
-      );
-    } else {
-      await page.getByRole('button', { name: /詳細サンプルへ進む/i }).click();
-    }
-    await page.waitForTimeout(1200);
+    // Run 12-factor consistency check directly on the assembled draft!
+    await page.getByRole('button', { name: /文章の矛盾・整合性をチェックする/i }).click();
+    await page.waitForFunction(
+      () => window.__THESIS_CITY__?.getState().appPhase === 'verify',
+      undefined,
+      { timeout: 15000 },
+    );
+    await page.waitForTimeout(1000);
 
     // STEP 2: Verify Interactive Contradiction & Consistency Check Stage ('verify')
     const step2State = await page.evaluate(() => window.__THESIS_CITY__.getState());
@@ -250,12 +257,14 @@ async function run() {
       throw new Error(`Browser errors: ${JSON.stringify({ consoleErrors, pageErrors })}`);
     }
     if (
+      step0Audit.violations.length > 0 ||
       step1Audit.violations.length > 0 ||
       step2Audit.violations.length > 0 ||
       step3Audit.violations.length > 0
     ) {
       throw new Error(
         `WCAG violations: ${JSON.stringify({
+          step0: step0Audit.violations,
           step1: step1Audit.violations,
           step2: step2Audit.violations,
           step3: step3Audit.violations,

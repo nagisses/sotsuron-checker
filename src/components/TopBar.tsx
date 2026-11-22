@@ -8,13 +8,15 @@ export function TopBar() {
   const setInspectorOpen = useThesisStore((s) => s.setInspectorOpen);
   const soundEnabled = useThesisStore((s) => s.soundEnabled);
   const setSoundEnabled = useThesisStore((s) => s.setSoundEnabled);
+  const goToPrep = useThesisStore((s) => s.goToPrep);
   const resetToUpload = useThesisStore((s) => s.resetToUpload);
   const returnToVerify = useThesisStore((s) => s.returnToVerify);
 
-  const steps: { id: 'upload' | 'verify' | 'built'; label: string }[] = [
-    { id: 'upload', label: '① 卒論・レポート入力' },
-    { id: 'verify', label: '② 矛盾・整合性の確認' },
-    { id: 'built', label: '③ 採点・建物建設' },
+  const steps: { id: 'prep' | 'upload' | 'verify' | 'built'; label: string }[] = [
+    { id: 'prep', label: '① 書き出すまで' },
+    { id: 'upload', label: '② 本文・読込' },
+    { id: 'verify', label: '③ 矛盾・整合性' },
+    { id: 'built', label: '④ 採点・建設' },
   ];
 
   return (
@@ -32,6 +34,7 @@ export function TopBar() {
         {steps.map((step) => {
           const active = appPhase === step.id;
           const clickable =
+            (step.id === 'prep' && appPhase !== 'prep') ||
             (step.id === 'upload' && appPhase !== 'upload') ||
             (step.id === 'verify' && appPhase === 'built');
           return (
@@ -42,7 +45,8 @@ export function TopBar() {
               aria-current={active ? 'step' : undefined}
               disabled={!clickable && !active}
               onClick={() => {
-                if (step.id === 'upload') resetToUpload();
+                if (step.id === 'prep') goToPrep();
+                else if (step.id === 'upload') resetToUpload();
                 else if (step.id === 'verify' && appPhase === 'built') returnToVerify();
               }}
             >
@@ -80,11 +84,11 @@ export function TopBar() {
           )}
         </button>
 
-        {appPhase !== 'upload' && (
+        {appPhase !== 'prep' && (
           <button
             type="button"
             className="hud-undo-btn"
-            onClick={() => resetToUpload()}
+            onClick={() => goToPrep()}
           >
             <RotateCcw size={13} aria-hidden="true" />
             <span>最初から</span>

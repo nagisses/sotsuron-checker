@@ -19,6 +19,7 @@ import { validateAndSanitizeThesisGraph } from '../engine/argumentValidator';
 import { analyzeTextLocally, evaluateRevisionLocally } from '../engine/localAnalyzer';
 import { evaluateThesisScore } from '../engine/scoring';
 import { useThesisStore } from '../store/useThesisStore';
+import { PrepStudio } from './PrepStudio';
 import { extractDocumentTextInBrowser } from '../utils/docxBrowser';
 import {
   EDGE_REL_JA,
@@ -77,6 +78,8 @@ export function RightPanel() {
   const loadThesisGraph = useThesisStore((s) => s.loadThesisGraph);
   const resetToSampleThesis = useThesisStore((s) => s.resetToSampleThesis);
   const resetToUpload = useThesisStore((s) => s.resetToUpload);
+  const goToPrep = useThesisStore((s) => s.goToPrep);
+  const draftFromPrep = useThesisStore((s) => s.draftFromPrep);
   const confirmedNodeIds = useThesisStore((s) => s.confirmedNodeIds);
   const toggleNodeConfirmed = useThesisStore((s) => s.toggleNodeConfirmed);
   const checklistChecks = useThesisStore((s) => s.checklistChecks);
@@ -124,6 +127,14 @@ export function RightPanel() {
       setBuiltDetailsOpen(false);
     }
   }, [appPhase]);
+
+  useEffect(() => {
+    if (!draftFromPrep) return;
+    setTitleInput(draftFromPrep.title);
+    setManuscriptText(draftFromPrep.text);
+    setFileName(null);
+    setUploadError(null);
+  }, [draftFromPrep]);
 
   useEffect(() => {
     if (appPhase !== 'built' || !scoreReport) {
@@ -608,26 +619,34 @@ export function RightPanel() {
     );
   }
 
-  /* STEP 1 & STEP 2: CENTERED FLOATING WORKSPACE OVER THE LIVING 3D CITY */
+  /* STEP 1, STEP 2 & STEP 3: CENTERED FLOATING WORKSPACE OVER THE LIVING 3D CITY */
   return (
     <div className="center-workspace-overlay">
       <aside
         id="analysis-inspector-panel"
-        className={`center-workspace-card ${appPhase === 'verify' ? 'is-wide' : ''}`}
+        className={`center-workspace-card ${appPhase === 'verify' || appPhase === 'prep' ? 'is-wide' : ''}`}
         aria-label="卒論・レポート検証パネル"
       >
-        {/* STEP 1: CENTERED UPLOAD / INPUT */}
+        {/* STEP 1: PRE-WRITING STUDIO (THEME -> SOURCES -> OUTLINE) */}
+        {appPhase === 'prep' && <PrepStudio />}
+
+        {/* STEP 2: CENTERED UPLOAD / DRAFT INPUT */}
         {appPhase === 'upload' && (
           <div ref={panelScrollRef} className="panel-scroll">
             <div className="step-intro-box">
               <div className="step-badge-row">
-                <span className="step-badge">ステップ 1 / 3</span>
+                <span className="step-badge">ステップ 2 / 4</span>
                 <span className="local-privacy-pill">APIキー不要・ブラウザ完結（外部送信なし）</span>
               </div>
               <h2 className="step-heading">卒論・レポートをアップロードまたは入力</h2>
               <p className="step-desc">
-                文章を読み込むと、<strong>12項目の精密ルール</strong>から <strong>① 論理の一貫性</strong>・<strong>② 根拠の説得力</strong>・<strong>③ 構成のわかりやすさ</strong> と <strong>8要素ステータス</strong> を即時診断し、採点後に中央の広場へ建物が建ちます。
+                構成から生成したドラフトを編集するか、手元のファイルを読み込んでください。<strong>12項目の精密ルール</strong>から <strong>3つの観点</strong> と <strong>8要素ステータス</strong> を即時診断し、採点後に中央の広場へ建物が建ちます。
               </p>
+              <div style={{ marginTop: 8 }}>
+                <button type="button" className="node-chip-btn" onClick={() => goToPrep()}>
+                  ← ステップ1（テーマ・資料・構成づくり）へ戻る
+                </button>
+              </div>
             </div>
 
             <div className="upload-drop-area">
@@ -739,11 +758,11 @@ export function RightPanel() {
           </div>
         )}
 
-        {/* STEP 2: CENTERED 3-PERSPECTIVE EVALUATION & INTERACTIVE EDITING */}
+        {/* STEP 3: CENTERED 3-PERSPECTIVE EVALUATION & INTERACTIVE EDITING */}
         {appPhase === 'verify' && (
           <div ref={panelScrollRef} className="panel-scroll">
             <div className="step-intro-box">
-              <span className="step-badge">ステップ 2 / 3</span>
+              <span className="step-badge">ステップ 3 / 4</span>
               <h2 className="step-heading">3つの観点からの診断と文章の修正</h2>
               <p className="step-desc">
                 文章の良い点と改善ポイントを確認し、気になる箇所はその場で書き直せます。確認が終わったら下のボタンで採点・建築へ進んでください。

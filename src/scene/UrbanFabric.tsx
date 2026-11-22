@@ -239,8 +239,8 @@ export function UrbanFabric() {
         <cylinderGeometry args={[47.5, 49.5, 1.55, 24]} />
       </mesh>
 
-      {/* Waiting Construction Site Ring on Central Plaza when in 'upload' phase */}
-      {appPhase === 'upload' && (
+      {/* Waiting Construction Site Ring on Central Plaza when in 'prep' or 'upload' phase */}
+      {(appPhase === 'prep' || appPhase === 'upload') && (
         <group position={[0, 0.08, 0]}>
           <mesh rotation={[-Math.PI / 2, 0, 0]} material={mats.emissiveCyan}>
             <ringGeometry args={[8.5, 8.85, 6]} />

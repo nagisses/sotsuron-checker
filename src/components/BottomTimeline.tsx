@@ -76,11 +76,13 @@ export function BottomTimeline() {
       </div>
 
       <div className="hover-reticle-status" aria-live="polite">
-        {hoveredBuilding && appPhase !== 'upload' ? (
+        {hoveredBuilding && appPhase !== 'prep' && appPhase !== 'upload' ? (
           <span>
             選択箇所: <strong>{getDisplayTitle(hoveredBuilding)}</strong>（
             {STATUS_META_JA[hoveredBuilding.status].shortLabel}）
           </span>
+        ) : appPhase === 'prep' ? (
+          <span>設計準備中 — 中央の画面でテーマ・資料・構成を作ってから書き出しましょう</span>
         ) : appPhase === 'upload' ? (
           <span>建設予定地（待機中）— 中央の画面から卒論やレポートを入力してください</span>
         ) : appPhase === 'verify' ? (

@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { SAMPLE_THESIS_GRAPH } from '../data/sampleThesis';
 import { GroundingAuditReport, ReviseNodeGeminiResult } from '../engine/argumentValidator';
 import { buildCityBlueprint } from '../engine/cityMapper';
+import { PrepState, loadSavedPrepState, savePrepState } from '../engine/prepBuilder';
 import { ThesisScoreReport, evaluateThesisScore } from '../engine/scoring';
 import {
   AnalysisSourceKind,
@@ -15,7 +16,7 @@ import {
   ToulminRole,
 } from '../types/thesis';
 
-export type AppPhase = 'upload' | 'verify' | 'built';
+export type AppPhase = 'prep' | 'upload' | 'verify' | 'built';
 export type DisasterKind = 'earthquake' | 'typhoon' | 'shield';
 
 export interface DisasterEventState {
@@ -55,6 +56,8 @@ export interface RenderTelemetry {
 
 interface ThesisCityState {
   appPhase: AppPhase;
+  prepState: PrepState;
+  draftFromPrep: { title: string; text: string; nonce: number } | null;
   confirmedNodeIds: Record<string, boolean>;
   checklistChecks: {
     noContradiction: boolean;
@@ -124,6 +127,10 @@ interface ThesisCityState {
   ) => void;
   resetToSampleThesis: () => void;
   resetToUpload: () => void;
+  goToPrep: () => void;
+  goToUploadDirect: () => void;
+  setPrepState: (next: PrepState) => void;
+  applyPrepToDraft: (title: string, text: string) => void;
   toggleNodeConfirmed: (nodeId: string) => void;
   toggleChecklistCheck: (key: 'noContradiction' | 'causalCheck' | 'evidenceVerified') => void;
   finalizeAndBuildCity: () => void;
@@ -166,7 +173,9 @@ function resolveCentralNodeId(blueprint: CityBlueprint): string {
 }
 
 export const useThesisStore = create<ThesisCityState>((set) => ({
-  appPhase: 'upload',
+  appPhase: 'prep',
+  prepState: loadSavedPrepState(),
+  draftFromPrep: null,
   confirmedNodeIds: {},
   checklistChecks: {
     noContradiction: false,
@@ -370,6 +379,48 @@ export const useThesisStore = create<ThesisCityState>((set) => ({
       cameraRequestNonce: state.cameraRequestNonce + 1,
       selectedEdgeId: null,
       hoveredTarget: null,
+      inspectorOpen: true,
+    })),
+
+  goToPrep: () =>
+    set((state) => ({
+      appPhase: 'prep',
+      scoreReport: null,
+      disasterEvent: null,
+      cameraMode: 'overview',
+      cameraRequestNonce: state.cameraRequestNonce + 1,
+      selectedEdgeId: null,
+      inspectorOpen: true,
+    })),
+
+  goToUploadDirect: () =>
+    set((state) => ({
+      appPhase: 'upload',
+      scoreReport: null,
+      disasterEvent: null,
+      cameraMode: 'overview',
+      cameraRequestNonce: state.cameraRequestNonce + 1,
+      selectedEdgeId: null,
+      inspectorOpen: true,
+    })),
+
+  setPrepState: (next) => {
+    savePrepState(next);
+    set({ prepState: next });
+  },
+
+  applyPrepToDraft: (title, text) =>
+    set((state) => ({
+      appPhase: 'upload',
+      draftFromPrep: {
+        title,
+        text,
+        nonce: (state.draftFromPrep?.nonce ?? 0) + 1,
+      },
+      scoreReport: null,
+      disasterEvent: null,
+      cameraMode: 'overview',
+      cameraRequestNonce: state.cameraRequestNonce + 1,
       inspectorOpen: true,
     })),
 

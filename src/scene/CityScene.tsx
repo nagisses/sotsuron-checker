@@ -134,8 +134,8 @@ function SceneWorld() {
       <directionalLight position={[-48, 32, -48]} intensity={1.55} color="#48D7BA" />
       <directionalLight position={[14, -14, 22]} intensity={0.62} color="#E3B86B" />
 
-      {/* Thesis Architecture (Hidden on empty 'upload' plot, foundations on 'verify', rises in 'built') */}
-      {appPhase !== 'upload' && (
+      {/* Thesis Architecture (Hidden on empty 'prep'/'upload' plot, foundations on 'verify', rises in 'built') */}
+      {appPhase !== 'prep' && appPhase !== 'upload' && (
         <group key={`hero-${blueprint.thesisId}`} name="thesis-city-hero">
           {blueprint.buildings.map((building, index) => (
             <HeroBuildingMesh key={building.nodeId} spec={building} buildOrderIndex={index} />
