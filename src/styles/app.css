@@ -2399,3 +2399,226 @@ textarea:focus-visible {
     grid-template-columns: 1fr;
   }
 }
+
+/* Interactive Visual Argument Map & Gemini Prompt Generator */
+.visual-map-box {
+  padding: 10px 12px;
+  background-color: rgba(8, 12, 18, 0.94);
+  border: 1px solid var(--reconstruction-cyan);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.visual-map-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.visual-map-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--reconstruction-cyan);
+}
+
+.visual-map-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+
+.legend-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 2px;
+}
+
+.legend-dot.is-ok {
+  background-color: #48D7BA;
+}
+
+.legend-dot.is-warn {
+  background-color: #E3B86B;
+}
+
+.legend-dot.is-empty {
+  background-color: #FF594F;
+}
+
+.visual-map-rq-node {
+  padding: 8px 10px;
+  background-color: rgba(72, 215, 186, 0.12);
+  border: 1px solid #48D7BA;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.rq-chip {
+  padding: 2px 7px;
+  font-size: 10px;
+  font-weight: 700;
+  background-color: #48D7BA;
+  color: #10161F;
+}
+
+.rq-text {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.visual-map-connector-line {
+  height: 10px;
+  width: 2px;
+  margin: -4px auto -4px auto;
+  background-color: rgba(72, 215, 186, 0.65);
+}
+
+.visual-map-chapters-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.visual-map-node {
+  text-align: left;
+  padding: 7px 8px;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--surface-graphite);
+  color: var(--text-primary);
+  font-family: var(--font-jp);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.visual-map-node.is-strong {
+  border-top: 3px solid #48D7BA;
+}
+
+.visual-map-node.is-warn {
+  border-top: 3px solid #E3B86B;
+}
+
+.visual-map-node.is-empty {
+  border-top: 3px dashed #FF594F;
+}
+
+.visual-map-node.is-selected {
+  border-color: #48D7BA;
+  box-shadow: 0 0 12px rgba(72, 215, 186, 0.28);
+}
+
+.vmap-node-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+}
+
+.vmap-node-badge {
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+
+.vmap-node-sub {
+  font-size: 10px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vmap-node-status {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.chapter-outline-card.is-focused {
+  border-color: var(--reconstruction-cyan);
+}
+
+.gemini-prompt-box {
+  padding: 10px 12px;
+  background-color: rgba(14, 24, 34, 0.95);
+  border: 1px solid rgba(124, 232, 255, 0.55);
+  border-left: 3px solid #7CE8FF;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.gemini-prompt-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.gemini-prompt-kicker {
+  font-size: 11px;
+  font-weight: 700;
+  color: #7CE8FF;
+}
+
+.gemini-prompt-label {
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
+.gemini-prompt-btns {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.gemini-copy-btn {
+  min-height: 30px;
+  padding: 4px 11px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background-color: #48D7BA;
+  border: 1px solid #48D7BA;
+  color: #10161F;
+  font-family: var(--font-jp);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.gemini-copy-btn:hover {
+  background-color: #66E8CE;
+}
+
+.gemini-prompt-preview {
+  margin: 0;
+  padding: 9px 10px;
+  background-color: #090C11;
+  border: 1px solid var(--surface-graphite);
+  color: var(--text-primary);
+  font-family: var(--font-jp);
+  font-size: 11px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+@media (max-width: 720px) {
+  .visual-map-chapters-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

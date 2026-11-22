@@ -395,3 +395,75 @@ export function savePrepState(prep: PrepState): void {
     // Ignore storage quota errors
   }
 }
+
+export function buildGeminiThemePrompt(prep: PrepState): string {
+  const field = prep.field.trim() || '（ここに興味のある分野を入力）';
+  const target = prep.target.trim() || '大学生';
+  const title = prep.selectedTitle.trim() || `${target}における${field}の研究`;
+  const rq = prep.researchQuestion.trim() || 'まだ曖昧なので一緒に絞りたい';
+  const hyp = prep.hypothesis.trim() || '未設定';
+
+  return [
+    'あなたは大学ゼミの指導教員です。卒論・レポートの「書き始められない」を突破するため、以下のテーマ案を壁打ちしてください。',
+    '',
+    `【関心分野】${field}`,
+    `【調査対象】${target}`,
+    `【仮タイトル】${title}`,
+    `【中心となる問い（RQ）】${rq}`,
+    `【仮説】${hyp}`,
+    '',
+    '以下の3点をわかりやすく提案してください：',
+    '1. この問い（RQ）をより具体的・検証可能にする言い換え案を3つ',
+    '2. 調査やデータ収集で気をつけるべき「論理の落とし穴・反論ポイント」を2つ',
+    '3. 最初に調べるべきキーワード・先行研究の探し方',
+  ].join('\n');
+}
+
+export function buildGeminiNotebookPrompt(prep: PrepState): string {
+  const title = prep.selectedTitle.trim() || '卒論・レポート';
+  const sourcesBlock =
+    prep.sources.length > 0
+      ? prep.sources
+          .map(
+            (s, i) =>
+              `${i + 1}. [${SOURCE_KIND_META[s.kind].label}] ${s.title}\n   内容: ${s.note}${
+                s.citation ? `\n   出典・条件: ${s.citation}` : ''
+              }`,
+          )
+          .join('\n')
+      : '（まだ資料カードがありません。調べたメモや統計データをここに貼ってください）';
+
+  return [
+    '以下は卒論・レポート用に学習ノートブックへまとめた資料メモです。',
+    'これらを整理し、文章を書き始める前の「論点マップ」と「不足している根拠」を洗い出してください。',
+    '',
+    `【テーマ】${title}`,
+    `【問い（RQ）】${prep.researchQuestion.trim() || '未設定'}`,
+    '',
+    '【収集した資料メモ】',
+    sourcesBlock,
+    '',
+    '以下の形式で整理してください：',
+    '1. 資料どうしの共通点・対立点（表形式）',
+    '2. 主張を裏付けるために「あと1つ足すと説得力が跳ね上がるデータ・反論」',
+    '3. 各資料をどの章（背景・分析・考察・結論）で使うべきかの配置案',
+  ].join('\n');
+}
+
+export function buildGeminiFirstDraftPrompt(prep: PrepState): string {
+  const assembled = assembleDraftFromPrep(prep);
+  return [
+    '卒論・レポートの「書き出し」を突破したいです。文章を丸投げするのではなく、私の構成をもとに【書き出しガイド】を作ってください。',
+    '',
+    `【タイトル】${assembled.title}`,
+    `【中心となる問い（RQ）】${prep.researchQuestion.trim() || '未設定'}`,
+    '',
+    '【自分の章構成メモ】',
+    assembled.text,
+    '',
+    '以下をお願いしたいです：',
+    '1. この構成の「論理のつながり」に矛盾や飛躍がないか辛口チェック',
+    '2. 第1章の書き出し（最初の3文）を自分で書くための穴埋めテンプレート',
+    '3. 執筆中に迷子にならないための「各章で必ず触れるべきチェック項目」',
+  ].join('\n');
+}

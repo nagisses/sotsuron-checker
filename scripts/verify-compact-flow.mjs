@@ -200,12 +200,13 @@ async function run() {
     const step0Audit = await runAudit(page);
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, 'compact-00-prep-studio.png') });
 
-    // Load Preset ② (earthquake weakness), switch to Outline tab, and assemble draft into Step 2 ('upload')
+    // Load Preset ② (earthquake weakness), switch to Visual Map & Outline tab, and assemble draft into Step 2 ('upload')
     await page.getByRole('button', { name: /スマホ×睡眠/i }).click();
     await page.waitForTimeout(200);
-    await page.getByRole('tab', { name: /3\. 構成づくり/i }).click();
-    await page.waitForTimeout(200);
-    await page.getByRole('button', { name: /この構成から本文ドラフトを作成して次へ/i }).click();
+    await page.getByRole('tab', { name: /3\. 論点マップ＆構成/i }).click();
+    await page.waitForTimeout(250);
+    await page.screenshot({ path: path.join(SCREENSHOT_DIR, 'compact-00b-visual-map.png') });
+    await page.getByRole('button', { name: /この構成から本文ドラフトを作成して整合性＆3D耐震テストへ/i }).click();
     await page.waitForTimeout(350);
 
     // STEP 2: Verify Draft/Upload Stage ('upload') pre-filled from Prep Studio

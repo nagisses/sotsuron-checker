@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import {
   ArrowRight,
   BookOpen,
+  Check,
   CheckCircle2,
   ClipboardCopy,
   Compass,
@@ -17,6 +18,9 @@ import {
   SOURCE_KIND_META,
   SourceKind,
   assembleDraftFromPrep,
+  buildGeminiFirstDraftPrompt,
+  buildGeminiNotebookPrompt,
+  buildGeminiThemePrompt,
   createInitialPrepState,
   evaluatePrepReadiness,
   generateThemeCandidates,
@@ -32,17 +36,42 @@ export function PrepStudio() {
   const goToUploadDirect = useThesisStore((s) => s.goToUploadDirect);
 
   const [activeTab, setActiveTab] = useState<PrepTab>('theme');
+  const [selectedChapterId, setSelectedChapterId] = useState<string>('ch-1');
   const [newSourceKind, setNewSourceKind] = useState<SourceKind>('data');
   const [newSourceTitle, setNewSourceTitle] = useState('');
   const [newSourceNote, setNewSourceNote] = useState('');
   const [newSourceCitation, setNewSourceCitation] = useState('');
-  const [copiedNotice, setCopiedNotice] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [promptPreviewOpen, setPromptPreviewOpen] = useState(false);
 
   const readiness = useMemo(() => evaluatePrepReadiness(prepState), [prepState]);
   const candidates = useMemo(
     () => generateThemeCandidates(prepState.field, prepState.target, prepState.angle),
     [prepState.field, prepState.target, prepState.angle],
   );
+
+  const activeGeminiPrompt = useMemo(() => {
+    if (activeTab === 'theme') return buildGeminiThemePrompt(prepState);
+    if (activeTab === 'sources') return buildGeminiNotebookPrompt(prepState);
+    return buildGeminiFirstDraftPrompt(prepState);
+  }, [activeTab, prepState]);
+
+  const activePromptLabel =
+    activeTab === 'theme'
+      ? 'テーマ＆問いを Gemini と壁打ちするプロンプト'
+      : activeTab === 'sources'
+        ? '学習ノートブックの資料を Gemini で論点整理するプロンプト'
+        : '構成チェック＆「書き出し最初の3文」を Gemini に相談するプロンプト';
+
+  const copyText = async (id: string, text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      // Fallback for restricted clipboard contexts
+    }
+    setCopiedId(id);
+    window.setTimeout(() => setCopiedId((prev) => (prev === id ? null : prev)), 2000);
+  };
 
   const handleAddSource = () => {
     if (newSourceNote.trim().length < 4) return;
@@ -89,18 +118,6 @@ export function PrepStudio() {
     });
   };
 
-  const handleCopyOutline = async () => {
-    const assembled = assembleDraftFromPrep(prepState);
-    const copyText = `【タイトル】\n${assembled.title}\n\n【問い（RQ）】\n${prepState.researchQuestion || '未設定'}\n\n【構成・本文ドラフト】\n${assembled.text}`;
-    try {
-      await navigator.clipboard.writeText(copyText);
-      setCopiedNotice(true);
-      window.setTimeout(() => setCopiedNotice(false), 1800);
-    } catch {
-      // Clipboard unavailable in headless/restricted context
-    }
-  };
-
   const handleProceedToDraft = () => {
     const assembled = assembleDraftFromPrep(prepState);
     applyPrepToDraft(assembled.title, assembled.text);
@@ -110,12 +127,12 @@ export function PrepStudio() {
     <div className="panel-scroll">
       <div className="step-intro-box">
         <div className="step-badge-row">
-          <span className="step-badge">ステップ 1 / 4（書き出すまでスタジオ）</span>
-          <span className="local-privacy-pill">APIキー不要・自動保存（ブラウザ完結）</span>
+          <span className="step-badge">ステップ 1 / 4 ・「書き始められない」突破スタジオ</span>
+          <span className="local-privacy-pill">APIキー不要・Gemini用プロンプト自動生成</span>
         </div>
-        <h2 className="step-heading">テーマ決め・資料整理・構成づくりをここで一気に完成</h2>
+        <h2 className="step-heading">テーマ決め・学習ノートブック・論点マップで「書き出すまで」を完成</h2>
         <p className="step-desc">
-          「何を書くか迷う…」から卒業！ <strong>① テーマ決め → ② 資料整理 → ③ 構成づくり</strong> を埋めるだけで本文ドラフトを自動生成し、そのまま整合性チェック＆3D建物建設・災害テストへ進めます。
+          卒論・レポートで一番つらい<strong>「書き出し前」</strong>を3ステップで整理。各ステップで<strong>そのまま Gemini に貼れる相談プロンプト</strong>を自動生成し、最後は作った構成を<strong>3D都市＆地震・台風テスト</strong>で強度診断できます！
         </p>
 
         <div className="prep-top-actions">
@@ -144,7 +161,7 @@ export function PrepStudio() {
             onClick={() => goToUploadDirect()}
           >
             <FileText size={13} aria-hidden="true" />
-            <span>すでに文章がある方（直接アップロード・貼り付けへ →）</span>
+            <span>すでに下書きがある方（直接アップロード・整合性診断へ →）</span>
           </button>
         </div>
       </div>
@@ -152,7 +169,7 @@ export function PrepStudio() {
       {/* Live Prep Readiness Bar */}
       <div className="prep-readiness-box">
         <div className="prep-readiness-top">
-          <span className="prep-readiness-label">書き出し準備の完成度</span>
+          <span className="prep-readiness-label">書き出し準備の完成度（耐震スコア予測）</span>
           <strong className="mono" style={{ color: readiness.score >= 70 ? '#48D7BA' : '#E3B86B' }}>
             {readiness.score}%
           </strong>
@@ -172,13 +189,13 @@ export function PrepStudio() {
             {readiness.hasTheme ? '✓ テーマ＆問い' : '○ テーマ＆問い'}
           </span>
           <span className={`verify-stat ${readiness.hasDataOrSurvey ? 'is-ok' : ''}`}>
-            {readiness.hasDataOrSurvey ? '✓ データ・調査' : '○ データ・調査'}
+            {readiness.hasDataOrSurvey ? '✓ 学習ノート(データ)' : '○ 学習ノート(データ)'}
           </span>
           <span className={`verify-stat ${readiness.hasCounter ? 'is-ok' : ''}`}>
             {readiness.hasCounter ? '✓ 反論・限界' : '○ 反論・限界'}
           </span>
           <span className={`verify-stat ${readiness.filledChapters >= 3 ? 'is-ok' : ''}`}>
-            章構成: {readiness.filledChapters}/4章
+            論点マップ: {readiness.filledChapters}/4章
           </span>
         </div>
       </div>
@@ -203,7 +220,7 @@ export function PrepStudio() {
           onClick={() => setActiveTab('sources')}
         >
           <BookOpen size={14} aria-hidden="true" />
-          <span>2. 資料整理 ({prepState.sources.length})</span>
+          <span>2. 学習ノート ({prepState.sources.length})</span>
         </button>
         <button
           type="button"
@@ -213,7 +230,7 @@ export function PrepStudio() {
           onClick={() => setActiveTab('outline')}
         >
           <Layers size={14} aria-hidden="true" />
-          <span>3. 構成づくり ({readiness.filledChapters}/4)</span>
+          <span>3. 論点マップ＆構成 ({readiness.filledChapters}/4)</span>
         </button>
       </div>
 
@@ -351,18 +368,18 @@ export function PrepStudio() {
               className="primary-cta-btn"
               onClick={() => setActiveTab('sources')}
             >
-              <span>次へ：② 資料・メモ整理へ進む</span>
+              <span>次へ：② 学習ノートブック（資料整理）へ進む</span>
               <ArrowRight size={15} aria-hidden="true" />
             </button>
           </div>
         </div>
       )}
 
-      {/* TAB 2: EVIDENCE & SOURCE MEMO ORGANIZER */}
+      {/* TAB 2: LEARNING NOTEBOOK (EVIDENCE & SOURCE MEMO ORGANIZER) */}
       {activeTab === 'sources' && (
         <div className="prep-tab-panel">
           <div className="source-add-card">
-            <span className="form-field-label">新しい資料・メモカードを追加</span>
+            <span className="form-field-label">学習ノートブックに資料・根拠メモを追加</span>
             <div className="sample-btn-row" style={{ marginBottom: 8 }}>
               {(Object.keys(SOURCE_KIND_META) as SourceKind[]).map((k) => (
                 <button
@@ -410,13 +427,13 @@ export function PrepStudio() {
               onClick={handleAddSource}
             >
               <Plus size={12} style={{ verticalAlign: 'middle', marginRight: 4 }} aria-hidden="true" />
-              資料カードを追加
+              学習ノートにカードを追加
             </button>
           </div>
 
           {prepState.sources.length === 0 ? (
             <div className="prep-empty-note">
-              まだ資料カードがありません。数値データや先行研究、反論・限界のメモを1〜3件入れると構成が一気に強くなります。
+              まだ資料カードがありません。数値データ・先行研究・反論メモを1〜3件入れると、Gemini で論点整理しやすくなり3D建築も強固になります。
             </div>
           ) : (
             <div className="source-cards-list">
@@ -447,60 +464,126 @@ export function PrepStudio() {
               className="primary-cta-btn"
               onClick={() => setActiveTab('outline')}
             >
-              <span>次へ：③ 構成づくりへ進む</span>
+              <span>次へ：③ インタラクティブ論点マップ＆構成づくりへ</span>
               <ArrowRight size={15} aria-hidden="true" />
             </button>
           </div>
         </div>
       )}
 
-      {/* TAB 3: CHAPTER OUTLINE BUILDER */}
+      {/* TAB 3: INTERACTIVE VISUAL ARGUMENT MAP & CHAPTER OUTLINE */}
       {activeTab === 'outline' && (
         <div className="prep-tab-panel">
+          {/* Interactive Visual Argument Map */}
+          <div className="visual-map-box" aria-label="インタラクティブ論点マップ">
+            <div className="visual-map-header">
+              <span className="visual-map-title">🗺️ インタラクティブ論点マップ（ノードをクリックして章を編集）</span>
+              <span className="visual-map-legend">
+                <span className="legend-dot is-ok" /> 根拠接続済
+                <span className="legend-dot is-warn" /> 資料未接続
+                <span className="legend-dot is-empty" /> 未記入
+              </span>
+            </div>
+
+            <div className="visual-map-rq-node">
+              <span className="rq-chip">中心の問い（RQ）</span>
+              <span className="rq-text">
+                {prepState.researchQuestion.trim() ||
+                  prepState.selectedTitle.trim() ||
+                  'タブ1でテーマと問いを設定するとここに表示されます'}
+              </span>
+            </div>
+
+            <div className="visual-map-connector-line" aria-hidden="true" />
+
+            <div className="visual-map-chapters-grid">
+              {prepState.chapters.map((ch) => {
+                const hasText = ch.summary.trim().length >= 12;
+                const linkCount = ch.linkedSourceIds.length;
+                const stateClass =
+                  hasText && linkCount > 0 ? 'is-strong' : hasText ? 'is-warn' : 'is-empty';
+                const isSelected = selectedChapterId === ch.id;
+                return (
+                  <button
+                    key={ch.id}
+                    type="button"
+                    className={`visual-map-node ${stateClass} ${isSelected ? 'is-selected' : ''}`}
+                    onClick={() => setSelectedChapterId(ch.id)}
+                  >
+                    <div className="vmap-node-top">
+                      <strong>{ch.chapterLabel.split('：')[0]}</strong>
+                      <span className="vmap-node-badge">
+                        {linkCount > 0 ? `資料 ${linkCount}件` : '資料なし'}
+                      </span>
+                    </div>
+                    <div className="vmap-node-sub">{ch.chapterLabel.split('：')[1] ?? ''}</div>
+                    <div className="vmap-node-status">
+                      {hasText && linkCount > 0
+                        ? '🛡️ 耐震OK'
+                        : hasText
+                          ? '⚠️ 根拠を紐づけ推奨'
+                          : '🔥 未記入（要入力）'}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           <div className="outline-chapters-list">
-            {prepState.chapters.map((ch) => (
-              <div key={ch.id} className="chapter-outline-card">
-                <div className="chapter-header-row">
-                  <strong className="chapter-title">{ch.chapterLabel}</strong>
-                  <span className="chapter-hint">{ch.roleHint}</span>
-                </div>
-                <textarea
-                  className="hud-textarea"
-                  rows={2}
-                  aria-label={ch.chapterLabel}
-                  placeholder="この章で書く要点（1〜2文でOK）"
-                  value={ch.summary}
-                  onChange={(e) =>
-                    setPrepState({
-                      ...prepState,
-                      chapters: prepState.chapters.map((item) =>
-                        item.id === ch.id ? { ...item, summary: e.target.value } : item,
-                      ),
-                    })
-                  }
-                />
-                {prepState.sources.length > 0 && (
-                  <div className="chapter-source-tags">
-                    <span className="chapter-source-label">使う資料を紐づけ：</span>
-                    {prepState.sources.map((src) => {
-                      const linked = ch.linkedSourceIds.includes(src.id);
-                      return (
-                        <button
-                          key={src.id}
-                          type="button"
-                          className={`chapter-src-pill ${linked ? 'is-linked' : ''}`}
-                          aria-pressed={linked}
-                          onClick={() => handleToggleChapterSource(ch.id, src.id)}
-                        >
-                          {linked ? '✓ ' : '+ '}
-                          {src.title}
-                        </button>
-                      );
-                    })}
+            {prepState.chapters.map((ch) => {
+              const isSelected = selectedChapterId === ch.id;
+              return (
+                <div
+                  key={ch.id}
+                  className={`chapter-outline-card ${isSelected ? 'is-focused' : ''}`}
+                  onClick={() => setSelectedChapterId(ch.id)}
+                >
+                  <div className="chapter-header-row">
+                    <strong className="chapter-title">{ch.chapterLabel}</strong>
+                    <span className="chapter-hint">{ch.roleHint}</span>
                   </div>
-                )}
-              </div>
-            ))}
+                  <textarea
+                    className="hud-textarea"
+                    rows={2}
+                    aria-label={ch.chapterLabel}
+                    placeholder="この章で書く要点（1〜2文でOK）"
+                    value={ch.summary}
+                    onChange={(e) =>
+                      setPrepState({
+                        ...prepState,
+                        chapters: prepState.chapters.map((item) =>
+                          item.id === ch.id ? { ...item, summary: e.target.value } : item,
+                        ),
+                      })
+                    }
+                  />
+                  {prepState.sources.length > 0 && (
+                    <div className="chapter-source-tags">
+                      <span className="chapter-source-label">学習ノートから資料を紐づけ：</span>
+                      {prepState.sources.map((src) => {
+                        const linked = ch.linkedSourceIds.includes(src.id);
+                        return (
+                          <button
+                            key={src.id}
+                            type="button"
+                            className={`chapter-src-pill ${linked ? 'is-linked' : ''}`}
+                            aria-pressed={linked}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleChapterSource(ch.id, src.id);
+                            }}
+                          >
+                            {linked ? '✓ ' : '+ '}
+                            {src.title}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
           {readiness.hintsJa.length > 0 && (
@@ -514,21 +597,57 @@ export function PrepStudio() {
           )}
 
           <div className="prep-final-actions">
-            <button type="button" className="node-chip-btn" onClick={handleCopyOutline}>
-              <ClipboardCopy size={12} style={{ verticalAlign: 'middle', marginRight: 4 }} aria-hidden="true" />
-              {copiedNotice ? '構成メモをコピーしました！' : '構成メモをコピー'}
-            </button>
             <button
               type="button"
               className="primary-cta-btn"
               onClick={handleProceedToDraft}
             >
               <Sparkles size={16} aria-hidden="true" />
-              <span>この構成から本文ドラフトを作成して次へ →</span>
+              <span>この構成から本文ドラフトを作成して整合性＆3D耐震テストへ →</span>
             </button>
           </div>
         </div>
       )}
+
+      {/* LIVE GEMINI PROMPT GENERATOR BAR (ALWAYS AVAILABLE FOR CURRENT STEP!) */}
+      <div className="gemini-prompt-box">
+        <div className="gemini-prompt-top">
+          <div>
+            <div className="gemini-prompt-kicker">✨ Gemini 活用プロンプト自動生成</div>
+            <div className="gemini-prompt-label">{activePromptLabel}</div>
+          </div>
+          <div className="gemini-prompt-btns">
+            <button
+              type="button"
+              className="node-chip-btn"
+              aria-expanded={promptPreviewOpen}
+              onClick={() => setPromptPreviewOpen(!promptPreviewOpen)}
+            >
+              {promptPreviewOpen ? '中身を閉じる' : '中身を見る'}
+            </button>
+            <button
+              type="button"
+              className="gemini-copy-btn"
+              onClick={() => copyText(activeTab, activeGeminiPrompt)}
+            >
+              {copiedId === activeTab ? (
+                <>
+                  <Check size={13} aria-hidden="true" />
+                  <span>コピーしました！Geminiへ貼付OK</span>
+                </>
+              ) : (
+                <>
+                  <ClipboardCopy size={13} aria-hidden="true" />
+                  <span>Gemini用プロンプトをコピー</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+        {promptPreviewOpen && (
+          <pre className="gemini-prompt-preview">{activeGeminiPrompt}</pre>
+        )}
+      </div>
     </div>
   );
 }

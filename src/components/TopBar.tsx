@@ -26,7 +26,7 @@ export function TopBar() {
           <Layers size={18} color="#48D7BA" />
         </div>
         <div className="brand-title-block">
-          <h1 className="brand-heading">卒論・レポート整合性チェッカー</h1>
+          <h1 className="brand-heading">「書き始められない」突破スタジオ</h1>
         </div>
       </div>
 
